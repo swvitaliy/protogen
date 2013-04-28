@@ -1,0 +1,295 @@
+<html>
+<head>
+	<meta charset="utf-8" />
+	<title>ProtoGen</title>
+	<style type="text/css">
+	*  { font-family: Arial; font-size:14px; }
+	h1 { font-size:2em; }
+	h3 { font-size:1.17em; }
+	button { width:60px; height:624px; }
+	.left-side {
+		padding:4px;
+		float:left;
+		width:500px;
+		background:#9c9;
+	}
+	#controls {
+	    width:1076px;	
+	}
+	.center {
+		float:left;
+		width:60px;
+	}
+	.right-side {
+		padding:4px;
+		top:0;
+		float:right;
+		background:#c9c;
+		width:500px;
+	}
+	.cleaner {
+		height: 1px;
+		font-size: 1px;
+		clear: both;
+	}
+
+
+	</style>
+</head>
+<body>
+	<h1>Генератор Protobuf для JSON</h1>
+	<p>
+		Не ждите от этой штуки чудес.<br />
+		Она не знает, что такое enum, что такое default. Если встречается значение null, 
+		то поле считается optional, если не стоит галочка "strict mode" (если стоит, то появится ошибка).
+	</p>
+	<h3>Она просто берет кусок вашего json и делают из него protobuf максимально возможно простым способом.</h3>
+	<p>
+		Если в json появится конструкция вида "propA":[{"firstProperty":"val", ...}, ...],
+		те. массив, в котором имеются объекты, то берется первый объект, и считается, 
+		что все элементы массива - это объекты с такой же точно структурой.
+
+		При этом генерируется 2 мессаджа: <br />
+		message propA { ... } <br />
+		и <br />
+		message ArrayOfPropA { repeated PropA propA = 1;  extensions 1 to max; } <br />
+	<p></p>
+		Вы так же можете переопределить эти названия, добавив в соответствующий textarea строчки вида<br />
+		{название по-умолчанию} - {новое название}.<br /> Например, ArrayOfProject - Projects<br />
+	</p>
+	<p>p.s. Делал в Chrome 26.0.1410.63. В других браузерах не проверял, так что не обессудьте ;)</p>
+
+	
+	<div id="examples">
+		<span>Примеры</span>
+		<a href="#" id="ex_1" onclick="ex(1);return false;">#1</a>
+		<a href="#" id="ex_2" onclick="ex(2);return false;">#2</a>
+		<a href="#" id="ex_3" onclick="ex(3);return false;">#3</a>
+		<script type="text/javascript">
+
+		var exData = [{
+				"package":"P",
+				"rootMessageName":"A",
+				"strictMode":false,
+				"aliases":"",
+				"jsonText":'{"strProp":"string value"}',
+			}, {
+				"package":"P",
+				"rootMessageName": "A",
+				"strictMode":false,
+				"aliases":"Result - Item\nArrayOfResult - List",
+				"jsonText":'{"status":true,"result":[{}],"now":"2013-04-28 15:40:27"}',
+			}, {
+				"package":"P",
+				"rootMessageName": "A",
+				"strictMode":false,
+				"aliases":"",
+				"jsonText":'{"status":true,"result":{"id":"45414","nickname":"guest4541497345","createdate":"2013-04-12 11:06:47","avatar":"def_pic.png","last_activity":"2013-04-17 00:21:39","confirm":"0","private_photo":"0","personalized":"0","icon":"http:\/\/gifstory.s3.amazonaws.com\/avatar\/icon\/def_pic.jpg","middle":"http:\/\/gifstory.s3.amazonaws.com\/avatar\/middle\/def_pic.jpg","has_twitter_account":false,"has_facebook_account":false,"firstname":null,"lastname":null,"country":null,"citystate":null,"access":"public","website":null,"twitter":null,"facebook":null,"bio":null,"sex":null,"birthday":null},"now":"2013-04-28 18:18:27"}',
+			}];
+
+		function setValues(values) {
+			var prop, el;
+			for (prop in values) {
+				if (values.hasOwnProperty(prop)) {
+					el = elem(prop);
+					if (el.tagName === 'INPUT' && el.type === 'checkbox') {
+						el.checked = values[prop];
+					} else {
+						el.value = values[prop];
+					}
+				}
+			}
+			elem()
+		}
+		function ex(n) {
+			setValues(exData[n-1]);
+			gen();
+		}
+		</script>
+	</div><br />
+	<div id="controls">
+		<div class="left-side">
+			<div id="error" style="display:none">
+				<span class="text" style="color:red"></span> 	
+				<a href="#" onclick="elem('error').style.display='none';return false;">x</a>
+			</div><br />
+			<label for="package"><span>package</span><input type="text" id="package" /></label><br />
+			<label for="rootMessageName"><span>root message name*</span><input type="text" id="rootMessageName" /></label><br />
+			<label for="strictMode"><span>strict mode</span><input type="checkbox" id="strictMode" /></label><br /><br />
+			<label for="aliases">Aliases</label><br />
+			<textarea id="aliases" rows="7" cols="79"></textarea><br />
+			<label for="jsonText">JSON*</label><br />
+			<textarea id="jsonText" rows="22" cols="79"></textarea><br />
+		</div>
+		<div class="center">
+			<button onclick="gen();return false;">>>></button>
+		</div>
+		<div class="right-side">
+			<label for="resultText">Result</label><br />
+			<textarea id="resultText" rows="37" cols="79"></textarea>
+		</div>
+	</div><br /><br /><br /><br /><br /><div class="cleaner"></div><div>sw.vitaliy@gmail.com. <br />This <a href="#">source</a> under GNU GPL 2.0.</div>
+
+	<script type="text/javascript">
+
+		var aliases = {};
+
+		function elem(id) {
+			return document.getElementById(id);
+		}
+
+		function createScalarFn() {
+			var iter = 1;
+			return function(name, type, mode, defValue, value) {
+				mode = mode || 'required';
+				var ret = [mode, type, name, '=', (value || iter++)];
+				if (defValue) {
+					ret.push('[default = ' + defValue + ']');
+				}
+				return ret.join(' ') + ';';
+			};			 
+		}
+
+		function numberType(num) {
+			var tmp = parseFloat(num);
+			if (!isNaN(tmp)) {
+				return 'float';
+			} else {
+				tmp = parseInt(num);
+				if (!isNaN(tmp)) {
+					if (tmp > 2147483647 || tmp < -2147483648) {
+						return 'int64';
+					} else {
+						return 'int32';
+					}
+				} else {
+					return null;
+				}
+			}
+		}
+
+		function ucfirst(str) {
+			return str.substr(0,1).toUpperCase() + str.substr(1);
+		}
+
+		function offs(arr) {
+			return arr.map(function(v) { return "  " + v; });
+		}
+
+		function process(jsonObj, strict) {
+			var prop, val, type, itemText, 
+				ucProp, originUcProp, arrayPropName;
+			var fields = [];
+			var scalar = createScalarFn();
+			for (prop in jsonObj) {
+				if (jsonObj.hasOwnProperty(prop)) {
+					val = jsonObj[prop];
+					type = numberType(val);
+					if (type) {
+						fields.push(scalar(prop, type));
+					} else {
+						type = typeof val;
+						if (type !== 'object') {
+							fields.push(scalar(prop, type));
+						} else {
+							if (!val) {
+								if (strict) {
+									throw new Error("Protobuf no supported NULL vallues!!!");
+								}
+
+								fields.push(scalar(prop, 'string', 'optional'));
+							} else {
+								ucProp = ucfirst(prop);
+								originUcProp = ucProp;
+								if (aliases[ucProp]) {
+									ucProp = aliases[ucProp];
+								}
+								if (val.constructor.toString().slice(9,12) === 'Arr') {
+									if (val.length === 0 ) {
+										throw new Error("property \"" + prop + "\" - need at last one item!!!");
+									}
+
+									if (typeof val[0] !== 'object') {
+										throw new Error("array of not objects not supported!!!");
+									} else {
+										fields.push("");
+										fields.push("message " + ucProp + " {");
+										fields = fields.concat(offs(process(val[0], strict)));
+										fields.push("}");
+										fields.push("");
+										arrayPropName = 'ArrayOf' + originUcProp;
+										if (aliases[arrayPropName]) {
+											arrayPropName = aliases[arrayPropName];
+										}
+										fields.push('message ' + arrayPropName + " {");
+										fields.push("  " + scalar(prop, ucProp, 'repeated', undefined, 1));
+										fields.push("");
+										fields.push("  extensions 1 to max;");
+										fields.push("}");
+										fields.push("");
+									}
+								} else {
+									fields.push("");
+									fields.push('message ' + ucProp + ' {');
+									fields = fields.concat(offs(process(val, strict)));
+									fields.push('}');
+									fields.push("");
+								}
+							}
+						}
+					}
+
+				}
+			}
+
+			return fields;
+		}
+
+		function trim(str) {
+			return str.replace(/^\s+|\s+$/g, '');
+		};
+
+		function parseAliases(a) {
+			a = a.filter(function (v) { 
+				return trim(v).length > 0; 
+			});
+			return a.reduce(function(obj, v) { 
+				var pair = v.split('-'); 
+				obj[trim(pair[0])] = trim(pair[1]); 
+				return obj;
+			}, {});
+		}
+
+
+		function gen() {
+			var errElem = elem('error');
+			var resultElem = elem("resultText");
+			errElem.style.display = 'none';
+			resultElem.value = '';
+			try {
+				var messageName = trim(elem('rootMessageName').value);
+				if (messageName.length === 0) {
+					throw new Error("Expeted root message name!");
+				}
+				var text = trim(elem('jsonText').value);
+				if (text.length === 0) {
+					throw new Error("Expeted JSON!");
+				}
+				aliases = parseAliases(elem('aliases').value.split("\n"));
+				var result = process(JSON.parse(text), elem('strictMode').checked);
+				var result = ["message " + ucfirst(messageName) + " {"].concat(offs(result));
+				result.push("}");
+				var package = trim(elem('package').value);
+				if (package.length > 0) {
+					result = ["package " + package + ";\n"].concat(result);
+				}
+				resultElem.value = result.join("\n");
+			} catch (e) {
+				errElem.style.display = 'block';
+				document.querySelector('#error .text').innerHTML = e;
+			}
+		}
+
+	</script>
+</body>
+</html>
