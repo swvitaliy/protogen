@@ -222,10 +222,10 @@
 					}
 
 					if (val.constructor.toString().slice(9,12) === 'Arr') {
+						// Рекурсивный вызов process для массива объектов
 						if (val.length === 0 ) {
 							throw new Error("property \"" + prop + "\" - need at last one item!!!");
 						}
-
 						if (typeof val[0] !== 'object') {
 							throw new Error("array of not objects not supported!!!");
 						} else {
@@ -234,19 +234,17 @@
 							fields = fields.concat(offs(process(val[0], strict)));
 							fields.push("}");
 							fields.push("");
-							arrayPropName = 'ArrayOf' + originUcProp;
-							if (aliases[arrayPropName]) {
-								arrayPropName = aliases[arrayPropName];
-							}
-
 							fields.push(scalar(prop, ucProp, 'repeated'));
 						}
 					} else {
+						// Рекурсивный вызов process для одного объекта
+
 						fields.push("");
 						fields.push('message ' + ucProp + ' {');
 						fields = fields.concat(offs(process(val, strict)));
 						fields.push('}');
 						fields.push("");
+						fields.push(scalar(prop, ucProp));
 					}
 
 				}
