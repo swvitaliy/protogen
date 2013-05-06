@@ -151,21 +151,17 @@
 		}
 
 		function numberType(num) {
-			var tmp = parseFloat(num);
-			if (!isNaN(tmp)) {
-				return 'float';
-			} else {
-				tmp = parseInt(num);
-				if (!isNaN(tmp)) {
-					if (tmp > 2147483647 || tmp < -2147483648) {
-						return 'int64';
-					} else {
-						return 'int32';
-					}
+			num = num.toString();
+			var tmp = parseInt(num);
+			if (tmp.toString() === num) {
+				if (tmp > 2147483647 || tmp < -2147483648) {
+					return 'int64';
 				} else {
-					return null;
+					return 'int32';
 				}
 			}
+
+			return isNaN(parseFloat(num)) ? null : 'float';
 		}
 
 		function ucfirst(str) { return str.substr(0,1).toUpperCase() + str.substr(1); }
@@ -191,28 +187,31 @@
 						continue;
 					}
 
-					type = numberType(val);
-					if (type) {
-						fields.push(scalar(prop, type));
-						continue;
-					}
-
 					type = typeof val;
-					if (type !== 'object') {
-						if (type === 'boolean') {
-							type = 'bool';
-						}
-						fields.push(scalar(prop, type));
-						continue;
-					}
-
-					if (!val) {
+					if (type === 'object' && !val) { // is null
 						if (strict) {
 							throw new Error("Protobuf no supported NULL vallues!!!");
 						}
 
 						fields.push(scalar(prop, 'string', 'optional'));
 						continue;
+					}
+
+					if (val.constructor.toString().slice(9,12) !== 'Arr') {
+						type = numberType(val);
+						if (type) {
+							fields.push(scalar(prop, type));
+							continue;
+						}
+
+						type = typeof val;
+						if (type !== 'object') {
+							if (type === 'boolean') {
+								type = 'bool';
+							}
+							fields.push(scalar(prop, type));
+							continue;
+						}
 					}
 
 					ucProp = PascalCase(prop);
