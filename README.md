@@ -26,3 +26,7 @@ p.s. Делал в Chrome 26.0.1410.63. В других браузерах не 
 ~
 ~
 
+
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/swvitaliy/protogen/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+
